@@ -1,0 +1,48 @@
+services:
+  traefik:
+    image: traefik:v3.6.2
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - --log.level=DEBUG
+      - --accesslog=true
+
+      - --entrypoints.web.address=:80
+
+      - --entrypoints.web.http.redirections.entryPoint.to=websecure
+      - --entrypoints.web.http.redirections.entryPoint.scheme=https
+
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --providers.file.watch=true
+
+      - --api.dashboard=true
+      - --api.insecure=true
+    networks:
+      - edge
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./certs:/certs:ro
+      - ./dynamic:/etc/traefik/dynamic:ro
+    labels:
+      - traefik.enable=true
+
+      # Router del dashboard
+      #- traefik.http.routers.traefik_dash.rule=Host(`dash.kiroku.cl`)
+      #- traefik.http.routers.traefik_dash.entrypoints=websecure
+      #- traefik.http.routers.traefik_dash.tls=true
+
+      # Servicio interno del dashboard
+      - traefik.http.routers.traefik_dash.service=api@internal
+
+      # Basic Auth
+      - traefik.http.routers.traefik_dash.middlewares=traefik_dash_basicauth
+
+      # Creds de basic auth (bcrypt)
+      - "traefik.http.middlewares.traefik_dash_basicauth.basicauth.users=${BASIC_AUTH_CREDENTIALS}"
+
+networks:
+  edge:
+    external: true
+    name: ${EDGE_NETWORK:-edge}
