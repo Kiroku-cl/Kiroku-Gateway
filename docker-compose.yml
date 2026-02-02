@@ -8,6 +8,7 @@ services:
       - --accesslog=true
 
       - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
 
       - --entrypoints.web.http.redirections.entryPoint.to=websecure
       - --entrypoints.web.http.redirections.entryPoint.scheme=https
@@ -18,29 +19,29 @@ services:
       - --providers.file.watch=true
 
       - --api.dashboard=true
-      - --api.insecure=true
+      - --api.insecure=false
+
+      - --entrypoints.traefikdash.address=:8080
     networks:
       - edge
+    ports:
+      - "80:80"
+      - "443:443"
+      - "127.0.0.1:8080:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./certs:/certs:ro
       - ./dynamic:/etc/traefik/dynamic:ro
+      - ./traefik/usersfile:/usersfile:ro
     labels:
       - traefik.enable=true
+      - traefik.http.middlewares.traefik-auth.basicauth.usersfile=/usersfile
 
       # Router del dashboard
-      #- traefik.http.routers.traefik_dash.rule=Host(`dash.kiroku.cl`)
-      #- traefik.http.routers.traefik_dash.entrypoints=websecure
-      #- traefik.http.routers.traefik_dash.tls=true
-
-      # Servicio interno del dashboard
+      - "traefik.http.routers.traefik_dash.rule=PathPrefix(`/dashboard`) || PathPrefix(`/api`)"
+      - traefik.http.routers.traefik_dash.entrypoints=traefikdash
       - traefik.http.routers.traefik_dash.service=api@internal
-
-      # Basic Auth
-      - traefik.http.routers.traefik_dash.middlewares=traefik_dash_basicauth
-
-      # Creds de basic auth (bcrypt)
-      - "traefik.http.middlewares.traefik_dash_basicauth.basicauth.users=${BASIC_AUTH_CREDENTIALS}"
+      - traefik.http.routers.traefik_dash.middlewares=traefik-auth
 
 networks:
   edge:
